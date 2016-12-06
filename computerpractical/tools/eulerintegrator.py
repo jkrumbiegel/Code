@@ -83,8 +83,8 @@ class EulerIntegrator(object):
         input_variables = tuple(
             # get variables from the result array from index step for variables with a result array, for the constants
             # always take the first and only one
-            (self.results[variable][step] if variable in self.affected_variables else self.results[variable][0]) for
-            variable in carrier.input_variables)
+            (self.results[variable][step] if variable in self.affected_variables or variable == "time" else
+             self.results[variable][0]) for variable in carrier.input_variables)
         return input_variables
 
     def _get_time_steps(self):
