@@ -5,7 +5,8 @@ class EulerIntegrator(object):
     def __init__(self):
         self.integrands = {}
         self.effectors = []
-        self.variables = []
+        self.input_variables = []
+        self.affected_variables = []
         self.results = {}
         self.ini_values = {}
         self.t_max = None
@@ -19,7 +20,8 @@ class EulerIntegrator(object):
             self.integrands[affected_variable] = integrand
             # add the integrand's affected variable into the integrator's
             # variable dictionary
-            self._add_variables(integrand.input_variables)
+            self._add_input_variables(integrand.input_variables)
+            self._add_affected_variable(integrand.affected_variable)
         else:
             expression = "Duplicate key"
             message = "Variable '{0}' is already affected by another integrand in the integrand dictionary"
@@ -31,12 +33,17 @@ class EulerIntegrator(object):
 
     def add_effector(self, effector):
         self.effectors.append(effector)
-        self._add_variables(effector.input_variables)
+        self._add_input_variables(effector.input_variables)
+        self._add_affected_variable(effector.affected_variable)
 
-    def _add_variables(self, variables):
+    def _add_input_variables(self, variables):
         for variable in variables:
-            if variable not in self.variables:
-                self.variables.append(variable)
+            if variable not in self.input_variables:
+                self.input_variables.append(variable)
+
+    def _add_affected_variable(self, variable):
+        if variable not in self.affected_variables:
+            self.affected_variables.append(variable)
 
     def add_effectors(self, *effectors):
         for effector in effectors:
@@ -74,9 +81,10 @@ class EulerIntegrator(object):
 
     def _get_input_variables(self, carrier, step):
         input_variables = tuple(
-            (self.results[variable][step] if variable[0] != "_" else self.results[variable][0]) for variable in
-            carrier.input_variables)
-        # TODO change to -1 maybe if events should be able to change constants
+            # get variables from the result array from index step for variables with a result array, for the constants
+            # always take the first and only one
+            (self.results[variable][step] if variable in self.affected_variables else self.results[variable][0]) for
+            variable in carrier.input_variables)
         return input_variables
 
     def _get_time_steps(self):
@@ -97,19 +105,17 @@ class EulerIntegrator(object):
             self.results[integrand.affected_variable][step] = new_value
 
     def _preallocate_result_arrays(self):
-        for variable in self.variables:
+        for variable in self.affected_variables:
             # exclude the time array from pre-allocation, the time array already exists at this point
             if variable != "time":
-                if variable[0] != "_":
-                    self.results[variable] = np.zeros(self.n_steps)
-                else:
-                    self.results[variable] = np.array([self.ini_values[variable]])
+                self.results[variable] = np.zeros(self.n_steps)
 
     def _initialize_at_zero(self, step):
         for variable, value in self.ini_values.items():
-            if variable in self.results:
+            # only initialize variables that are used as inputs for integrands or effectors
+            if variable in self.affected_variables:
                 self.results[variable][0] = value
-            else:
+            elif variable in self.input_variables:
                 self.results[variable] = np.array([value])
 
 
