@@ -60,8 +60,6 @@ class EulerIntegrator(object):
                     # get effector input variables
                     input_variables = self._get_input_variables(effector, step)
                     affected_variable = effector.affected_variable
-                    if affected_variable == "Ie":
-                        pass
                     # store result of the effector calculation in a temporary
                     # dictionary with values labeled with variable names
                     temp_result_dict[affected_variable] = effector.function(*input_variables)
@@ -75,10 +73,10 @@ class EulerIntegrator(object):
             self.results[variable][step] = value
 
     def _get_input_variables(self, carrier, step):
-        input_variables = tuple((self.results[variable][step] if variable[0] != "_"
-                                 else self.results[variable][0])
-                                # TODO change to -1 maybe if events should be able to change constants
-                                for variable in carrier.input_variables)
+        input_variables = tuple(
+            (self.results[variable][step] if variable[0] != "_" else self.results[variable][0]) for variable in
+            carrier.input_variables)
+        # TODO change to -1 maybe if events should be able to change constants
         return input_variables
 
     def _get_time_steps(self):
