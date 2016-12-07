@@ -3,6 +3,7 @@ import numpy as np
 
 class EulerIntegrator(object):
     def __init__(self):
+        self.calculators = []
         self.integrands = {}
         self.effectors = []
         self.input_variables = []
@@ -36,6 +37,15 @@ class EulerIntegrator(object):
         self._add_input_variables(effector.input_variables)
         self._add_affected_variable(effector.affected_variable)
 
+    def add_calculator(self, calculator):
+        self.calculators.append(calculator)
+        self._add_input_variables(calculator.input_variables)
+        self._add_affected_variable(calculator.affected_variable)
+
+    def add_calculators(self, *calculators):
+        for calculator in calculators:
+            self.add_calculator(calculator)
+
     def _add_input_variables(self, variables):
         for variable in variables:
             if variable not in self.input_variables:
@@ -55,9 +65,25 @@ class EulerIntegrator(object):
         self.results["time"], self.n_steps = self._get_time_steps()
         self._preallocate_result_arrays()
         self._initialize_at_zero(self.ini_values)
-        for i in range(1,self.n_steps):
-            self._integrate_to_step(i)
-            self._apply_effectors(i)
+        for i in range(self.n_steps):
+            if i > 0:
+                self._integrate_to_step(i)
+                self._apply_calculators(i)
+                self._apply_effectors(i)
+            else:
+                self._apply_calculators(i)
+                self._apply_effectors(i)
+
+    def _apply_calculators(self, step):
+        for calculator in self.calculators:
+            input_variables = self._get_input_variables(calculator, step)
+            affected_variable = calculator.affected_variable
+            # directly change the value in the result vector
+            # this is a difference to the effectors and enables you to
+            # calculate several calculations which depend on each other
+            # one after another
+            new_value = calculator.function(*input_variables)
+            self.results[affected_variable][step] = new_value
 
     def _apply_effectors(self, step):
         temp_result_dict = {}
@@ -120,8 +146,8 @@ class EulerIntegrator(object):
 
 
 class Integrand(object):
-    def __init__(self, function, affected_variable, input_variables):
-        self.function = function
+    def __init__(self, func, affected_variable, input_variables):
+        self.function = func
         self.affected_variable = affected_variable
         self.input_variables = input_variables
 
@@ -133,6 +159,13 @@ class Effector(object):
         self.input_variables = input_variables
         self.time = time
         self.active = True
+
+
+class Calculator(object):
+    def __init__(self, func, affected_variable, input_variables):
+        self.function = func
+        self.affected_variable = affected_variable
+        self.input_variables = input_variables
 
 
 class IntegrandError(Exception):
