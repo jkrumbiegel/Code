@@ -108,7 +108,9 @@ class EulerIntegrator(object):
         for effector in effectors:
             self.add_effector(effector)
 
-    def integrate(self, t_max, dt):
+    def integrate(self, t_max, dt, ini_values=None):
+        if ini_values is not None:
+            self.ini_values = ini_values
         self.t_max = t_max
         self.dt = dt
         self.results["time"], self.n_steps = self._get_time_steps()
