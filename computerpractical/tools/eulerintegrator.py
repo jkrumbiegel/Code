@@ -134,7 +134,7 @@ class EulerIntegrator(object):
             # calculate several calculations which depend on each other
             # one after another
             new_value = calculator.function(*input_variables)
-            self.results[affected_variable][step] = new_value
+            self.results[affected_variable][step, ...] = new_value
 
     def _apply_effectors(self, step):
         temp_result_dict = {}
@@ -157,17 +157,16 @@ class EulerIntegrator(object):
         # replace values in result arrays with ones from the temporary
         # dictionary
         for variable, value in temp_result_dict.items():
-            self.results[variable][step] = value
+            self.results[variable][step, ...] = value
 
     def _get_input_variables(self, carrier, step):
         input_variables = tuple(
             # get variables from the result array from index step for
             # variables with a result array, for the constants
             # always take the first and only one
-            (self.results[variable][
-                step] if variable in self.affected_variables or variable ==
+            (self.results[variable][step, ...] if variable in self.affected_variables or variable ==
                 "time" else
-             self.results[variable][0]) for variable in carrier.input_variables)
+             self.results[variable][0, ...]) for variable in carrier.input_variables)
         return input_variables
 
     def _get_time_steps(self):
@@ -183,23 +182,33 @@ class EulerIntegrator(object):
 
             # calculate new value with current integrand function
             new_value = (self.dt * integrand.function(*input_variables) +
-                         self.results[integrand.affected_variable][step - 1])
+                         self.results[integrand.affected_variable][step - 1, ...])
             # update results with calculated value at this time step
-            self.results[integrand.affected_variable][step] = new_value
+            self.results[integrand.affected_variable][step, ...] = new_value
 
     def _preallocate_result_arrays(self):
+        largest_shape = self._get_largest_ini_shape()
+
         for variable in self.affected_variables:
             # exclude the time array from pre-allocation, the time array
             # already exists at this point
             if variable != "time":
-                self.results[variable] = np.zeros(self.n_steps)
+                self.results[variable] = np.zeros((self.n_steps, *largest_shape))
+
+    def _get_largest_ini_shape(self):
+        for variable in self.ini_values:
+            if variable in self.affected_variables or variable in self.input_variables:
+                if isinstance(self.ini_values[variable], np.ndarray):
+                    if self.ini_values[variable].size > 1:
+                        return self.ini_values[variable].shape
+        return ()
 
     def _initialize_at_zero(self):
         for variable, value in self.ini_values.items():
             # only initialize variables that are used as inputs for
             # integrands or effectors
             if variable in self.affected_variables:
-                self.results[variable][0] = value
+                self.results[variable][0, ...] = value
             elif variable in self.input_variables:
                 self.results[variable] = np.array([value])
 
